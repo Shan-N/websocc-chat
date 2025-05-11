@@ -29,7 +29,6 @@ class Chat {
         try {
             if (recipient) {
                 recipient.send(JSON.stringify({ type: message_1.CHAT_LINES, payload: line }));
-                console.log(line);
             }
             else {
                 console.error("Recipient socket is not available.");

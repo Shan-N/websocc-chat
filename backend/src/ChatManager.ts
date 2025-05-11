@@ -2,18 +2,33 @@ import { WebSocket } from "ws";
 import { Chat } from "./Chat";
 import { v4 as uuidv4 } from "uuid";
 import { CHAT_LINES, INIT } from "./message";
+import Redis from 'ioredis';
+
+const redisPub = new Redis({ host: 'localhost', port: 6379 });
+const redisSub = new Redis({ host: 'localhost', port: 6379 });
 
 export class ChatManager {
-    private chats: Map<string, Chat>; 
+    private chats: Map<string, Chat>;
     private users: Map<WebSocket, string>;
+    private subscribedRooms: Set<string>;
 
     constructor() {
         this.chats = new Map();
         this.users = new Map();
+        this.subscribedRooms = new Set();
+
+        // Listen for messages from Redis and forward them to users
+        redisSub.on("message", (channel, message) => {
+            const chat = this.chats.get(channel);
+            if (chat) {
+                if (chat.user1) chat.user1.send(message);
+                if (chat.user2) chat.user2.send(message);
+            }
+        });
     }
 
     addUser(socket: WebSocket) {
-        this.users.set(socket, ""); // No room assigned yet
+        this.users.set(socket, "");
         this.addHandler(socket);
     }
 
@@ -30,7 +45,10 @@ export class ChatManager {
                 }
 
                 if (!chat.user1 && !chat.user2) {
-                    this.chats.delete(roomId); 
+                    this.chats.delete(roomId);
+                    // Optional: unsubscribe if no users left
+                    redisSub.unsubscribe(roomId);
+                    this.subscribedRooms.delete(roomId);
                 }
             }
         }
@@ -38,7 +56,7 @@ export class ChatManager {
     }
 
     private addHandler(socket: WebSocket) {
-        socket.on("message", (data) => {
+        socket.on("message", async (data) => {
             const message = JSON.parse(data.toString());
 
             if (message.type === INIT) {
@@ -55,6 +73,8 @@ export class ChatManager {
                     const chat = this.chats.get(roomId);
                     if (chat) {
                         chat.addMessage(socket, message.line);
+                        // Publish the message via Redis
+                        redisPub.publish(roomId, JSON.stringify({ type: CHAT_LINES, payload: message.line }));
                     }
                 }
             }
@@ -71,31 +91,43 @@ export class ChatManager {
         this.chats.set(roomId, chat);
         this.users.set(socket, roomId);
 
-        socket.send(
-            JSON.stringify({
-                type: "ROOM_CREATED",
-                roomId: roomId,
-            })
-        );
+        // Subscribe to the new room
+        if (!this.subscribedRooms.has(roomId)) {
+            redisSub.subscribe(roomId);
+            this.subscribedRooms.add(roomId);
+        }
+
+        socket.send(JSON.stringify({
+            type: "ROOM_CREATED",
+            roomId: roomId,
+        }));
     }
 
     private joinRoom(socket: WebSocket, roomId: string) {
-        const chat = this.chats.get(roomId);
-        if (chat && chat.addUser(socket)) {
+        let chat = this.chats.get(roomId);
+        if (!chat) {
+            chat = new Chat(null); // allow joining a room that already exists in Redis
+            this.chats.set(roomId, chat);
+        }
+
+        if (chat.addUser(socket)) {
             this.users.set(socket, roomId);
-            socket.send(
-                JSON.stringify({
-                    type: "ROOM_JOINED",
-                    roomId: roomId,
-                })
-            );
+
+            // Subscribe once per room
+            if (!this.subscribedRooms.has(roomId)) {
+                redisSub.subscribe(roomId);
+                this.subscribedRooms.add(roomId);
+            }
+
+            socket.send(JSON.stringify({
+                type: "ROOM_JOINED",
+                roomId: roomId,
+            }));
         } else {
-            socket.send(
-                JSON.stringify({
-                    type: "ERROR",
-                    message: "Room not found or full.",
-                })
-            );
+            socket.send(JSON.stringify({
+                type: "ERROR",
+                message: "Room not found or full.",
+            }));
         }
     }
 }

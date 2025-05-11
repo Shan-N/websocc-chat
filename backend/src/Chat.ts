@@ -7,7 +7,7 @@ export class Chat {
     public user2: WebSocket | null;
     public roomId: string;
 
-    constructor(user1: WebSocket) {
+    constructor(user1: WebSocket | null) {
         this.user1 = user1;
         this.user2 = null;
         this.roomId = uuidv4();
