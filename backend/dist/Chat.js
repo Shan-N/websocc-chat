@@ -4,7 +4,9 @@ exports.Chat = void 0;
 const uuid_1 = require("uuid");
 const message_1 = require("./message");
 class Chat {
-    constructor(user1) {
+    // public roomId: string;
+    constructor(user1, roomId) {
+        this.roomId = roomId;
         this.user1 = user1;
         this.user2 = null;
         this.roomId = (0, uuid_1.v4)();

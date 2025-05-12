@@ -5,9 +5,9 @@ import { CHAT_LINES } from "./message";
 export class Chat {
     public user1: WebSocket | null;
     public user2: WebSocket | null;
-    public roomId: string;
+    // public roomId: string;
 
-    constructor(user1: WebSocket | null) {
+    constructor(user1: WebSocket | null,public roomId: string) {
         this.user1 = user1;
         this.user2 = null;
         this.roomId = uuidv4();

@@ -1,7 +1,7 @@
 import { WebSocket } from "ws";
 import { Chat } from "./Chat";
 import { v4 as uuidv4 } from "uuid";
-import { CHAT_LINES, INIT } from "./message";
+import { CHAT_LINES, INIT, JOIN } from "./message";
 import Redis from 'ioredis';
 
 const redisPub = new Redis({ host: 'localhost', port: 6379 });
@@ -17,7 +17,6 @@ export class ChatManager {
         this.users = new Map();
         this.subscribedRooms = new Set();
 
-        // Listen for messages from Redis and forward them to users
         redisSub.on("message", (channel, message) => {
             const chat = this.chats.get(channel);
             if (chat) {
@@ -60,11 +59,17 @@ export class ChatManager {
             const message = JSON.parse(data.toString());
 
             if (message.type === INIT) {
-                if (message.roomId) {
-                    this.joinRoom(socket, message.roomId);
-                } else {
-                    this.createRoom(socket);
+                if(message.roomId) {
+                    return;
                 }
+                this.createRoom(socket);
+            }
+            else if (message.type === JOIN){
+                if (!message.roomId) {
+                    socket.send(JSON.stringify({ type: "ERROR", message: "Room ID is required." }));
+                    return;
+                }
+                this.joinRoom(socket, message.roomId);
             }
 
             if (message.type === CHAT_LINES) {
@@ -87,7 +92,7 @@ export class ChatManager {
 
     private createRoom(socket: WebSocket) {
         const roomId = uuidv4();
-        const chat = new Chat(socket);
+        const chat = new Chat(socket, roomId);
         this.chats.set(roomId, chat);
         this.users.set(socket, roomId);
 
@@ -106,7 +111,7 @@ export class ChatManager {
     private joinRoom(socket: WebSocket, roomId: string) {
         let chat = this.chats.get(roomId);
         if (!chat) {
-            chat = new Chat(null); // allow joining a room that already exists in Redis
+            chat = new Chat(null,roomId); // allow joining a room that already exists in Redis
             this.chats.set(roomId, chat);
         }
 

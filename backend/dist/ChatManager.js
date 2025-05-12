@@ -24,7 +24,6 @@ class ChatManager {
         this.chats = new Map();
         this.users = new Map();
         this.subscribedRooms = new Set();
-        // Listen for messages from Redis and forward them to users
         redisSub.on("message", (channel, message) => {
             const chat = this.chats.get(channel);
             if (chat) {
@@ -66,11 +65,16 @@ class ChatManager {
             const message = JSON.parse(data.toString());
             if (message.type === message_1.INIT) {
                 if (message.roomId) {
-                    this.joinRoom(socket, message.roomId);
+                    return;
                 }
-                else {
-                    this.createRoom(socket);
+                this.createRoom(socket);
+            }
+            else if (message.type === message_1.JOIN) {
+                if (!message.roomId) {
+                    socket.send(JSON.stringify({ type: "ERROR", message: "Room ID is required." }));
+                    return;
                 }
+                this.joinRoom(socket, message.roomId);
             }
             if (message.type === message_1.CHAT_LINES) {
                 const roomId = this.users.get(socket);
@@ -90,7 +94,7 @@ class ChatManager {
     }
     createRoom(socket) {
         const roomId = (0, uuid_1.v4)();
-        const chat = new Chat_1.Chat(socket);
+        const chat = new Chat_1.Chat(socket, roomId);
         this.chats.set(roomId, chat);
         this.users.set(socket, roomId);
         // Subscribe to the new room
@@ -106,7 +110,7 @@ class ChatManager {
     joinRoom(socket, roomId) {
         let chat = this.chats.get(roomId);
         if (!chat) {
-            chat = new Chat_1.Chat(null); // allow joining a room that already exists in Redis
+            chat = new Chat_1.Chat(null, roomId); // allow joining a room that already exists in Redis
             this.chats.set(roomId, chat);
         }
         if (chat.addUser(socket)) {
