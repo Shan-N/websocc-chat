@@ -1,102 +1,102 @@
-import Image, { type ImageProps } from "next/image";
-import { Button } from "@repo/ui/button";
-import styles from "./page.module.css";
+'use client';
+import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import { useSocket } from './hooks/useSocket';
 
-type Props = Omit<ImageProps, "src"> & {
-  srcLight: string;
-  srcDark: string;
-};
+export const INIT = 'init_chat';
+export const JOIN = 'join_chat';
+export const CHAT_LINES = 'chat_lines';
 
-const ThemeImage = (props: Props) => {
-  const { srcLight, srcDark, ...rest } = props;
+function Land() {
+  const socket = useSocket();
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [chat, setChat] = useState(false);
+  const [userId, setUserId] = useState(false);
+  const [roomIdInput, setRoomIdInput] = useState<string>("");
+
+  useEffect(() => {
+    if (socket) {
+      const handleMessage = (event: MessageEvent) => {
+        const data = JSON.parse(event.data);
+        console.log(data);
+        setRoomId(data.roomId);
+        if (data.type === "USER_JOINED") {
+          setChat(true);
+        }
+        else if (data.type === "ERROR"){
+            alert(data.message);
+        }
+      };
+
+      socket.onmessage = handleMessage;
+
+      return () => {
+        socket.onmessage = null;
+      };
+    } else {
+      console.log("Socket is not connected");
+    }
+  }, [socket]);
+
+  if (chat) {
+    return socket ? <Navigate to={`/chat?roomId=${roomId}`} /> : <Navigate to="/" />;
+  }
 
   return (
-    <>
-      <Image {...rest} src={srcLight} className="imgLight" />
-      <Image {...rest} src={srcDark} className="imgDark" />
-    </>
-  );
-};
-
-export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <ThemeImage
-          className={styles.logo}
-          srcLight="turborepo-dark.svg"
-          srcDark="turborepo-light.svg"
-          alt="Turborepo logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>apps/web/app/page.tsx</code>
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new/clone?demo-description=Learn+to+implement+a+monorepo+with+a+two+Next.js+sites+that+has+installed+three+local+packages.&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F4K8ZISWAzJ8X1504ca0zmC%2F0b21a1c6246add355e55816278ef54bc%2FBasic.png&demo-title=Monorepo+with+Turborepo&demo-url=https%3A%2F%2Fexamples-basic-web.vercel.sh%2F&from=templates&project-name=Monorepo+with+Turborepo&repository-name=monorepo-turborepo&repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fturborepo%2Ftree%2Fmain%2Fexamples%2Fbasic&root-directory=apps%2Fdocs&skippable-integrations=1&teamSlug=vercel&utm_source=create-turbo"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://turborepo.com/docs?utm_source"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
+    <div className='bg-black h-screen'>
+      <div className="justify-center items-center flex text-white">
+        <h1 className='font-semibold text-7xl'>Chat with yo bitch todayyyyy!!!</h1>
+      </div>
+      <div className='flex justify-center text-white pt-96 gap-6'>
+        <button
+          className='bg-green-400 px-4 py-3 rounded-2xl text-2xl'
+          onClick={() => {
+            setUserId(true);
+            setRoomId(null);
+          }}
+        >
+          Join Room😘
+        </button>
+        {
+            userId && (
+                <div>
+                    <input type='text' placeholder='Enter Room id' value={roomIdInput} onChange={(e)=>{
+                        setRoomIdInput(e.target.value);
+                    }} className='px-4 py-2 rounded text-xl'/>
+                    <button className='' onClick={()=>{
+                        socket?.send(JSON.stringify({
+                            type:JOIN,
+                            roomId:roomIdInput
+                        }))
+                    }}>
+                        Join
+                    </button>
+                </div>
+            )
+            
+        }
+        
+        <button
+          className='bg-blue-400 px-4 py-3 rounded-2xl text-2xl'
+          onClick={() => {
+            socket?.send(
+              JSON.stringify({
+                type: "init_chat"
+              })
+            );
+            setUserId(false);
+          }}
+        >
+          Create Room🫂
+        </button>
+      </div>
+      {roomId && (
+        <div className='text-white text-2xl font-bold flex pt-4 justify-center items-center'>
+          Share this room id w yo bitch <p className='bg-red-400 ml-2 px-2 rounded'>{roomId}</p>
         </div>
-        <Button appName="web" className={styles.secondary}>
-          Open alert
-        </Button>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com/templates?search=turborepo&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://turborepo.com?utm_source=create-turbo"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to turborepo.com →
-        </a>
-      </footer>
-    </div>
+      )}
+      </div>
   );
 }
+
+export default Land;
