@@ -3,10 +3,10 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSocket } from '../hooks/useSocket'; // assumes useSocket connects socket
 
-export const JOIN = 'join_chat';
-export const CHAT_LINES = 'chat_lines';
+const JOIN = 'join_chat';
+const CHAT_LINES = 'chat_lines';
 
-export const Chat = () => {
+export default function Chat () {
   const [searchParams] = useSearchParams();
   const roomId = searchParams.get('roomId');
   const socket = useSocket();
