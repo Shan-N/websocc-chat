@@ -1,42 +1,50 @@
 'use client';
+
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useSocket } from '../hooks/useSocket'; // assumes useSocket connects socket
+import { useSearchParams } from 'next/navigation';
+import { useSocket } from '../hooks/useSocket';
 
 const JOIN = 'join_chat';
 const CHAT_LINES = 'chat_lines';
 
-export default function Chat () {
-  const [searchParams] = useSearchParams();
+export default function Chat() {
+  const searchParams = useSearchParams();
   const roomId = searchParams.get('roomId');
+  const [userId, setUserId] = useState<string | null>(null);
   const socket = useSocket();
 
   const [messages, setMessages] = useState<string[]>([]);
   const [input, setInput] = useState('');
 
-  useEffect(() => {
-    
-    if (socket && roomId) {
-      // Join the room on connection
-      socket.send(JSON.stringify({
-        type: JOIN,
-        roomId: roomId,
-      }));
+useEffect(() => {
+  if (!socket) return;
 
-      socket.onmessage = (event: MessageEvent) => {
-        const data = JSON.parse(event.data);
-        console.log('Received:', data);
+  socket.onmessage = (event: MessageEvent) => {
+    const data = JSON.parse(event.data);
 
-        if (data.type === CHAT_LINES) {
-          setMessages((prev) => [...prev, data.message]);
-        }
-      };
-
-      return () => {
-        socket.onmessage = null;
-      };
+    if (!roomId && data.roomId) {
+      setUserId(data.roomId);
     }
-  }, [socket, roomId]);
+
+    if (data.type === CHAT_LINES) {
+      setMessages(prev => [...prev, data.payload]);
+    }
+  };
+
+  if (roomId) {
+    socket.send(JSON.stringify({
+      type: JOIN,
+      roomId: roomId,
+    }));
+  } else {
+    socket.send(JSON.stringify({ type: "init_chat" }));
+  }
+
+  return () => {
+    socket.onmessage = null;
+  };
+}, [socket, roomId]);
+
 
   const sendMessage = () => {
     if (input.trim()) {
@@ -44,14 +52,14 @@ export default function Chat () {
         type: CHAT_LINES,
         line: input.trim(),
       }));
-      setMessages((prev) => [...prev, `You: ${input.trim()}`]);
+      setMessages(prev => [...prev, `You: ${input.trim()}`]);
       setInput('');
     }
   };
 
   return (
-    <div className='p-4 text-white'>
-      <h2 className='text-2xl mb-4'>Room ID: {roomId}</h2>
+    <div className='p-4 text-black'>
+      <h2 className='text-2xl mb-4'>Room ID: {roomId || userId}</h2>
       <div className='mb-4'>
         {messages.map((msg, i) => (
           <p key={i}>{msg}</p>
