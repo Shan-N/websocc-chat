@@ -48,7 +48,7 @@ function Land() {
   return (
     <div className='bg-black h-screen'>
       <div className="justify-center items-center flex text-white">
-        <h1 className='font-semibold text-7xl'>Chat with yo bitch todayyyyy!!!</h1>
+        <h1 className='font-semibold text-7xl'>Chat with your friend todayyyyy!!!</h1>
       </div>
       <div className='flex justify-center text-white pt-96 gap-6'>
         <button
